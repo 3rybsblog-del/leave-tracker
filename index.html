@@ -21,16 +21,21 @@
           <p class="eyebrow">Leave tracker</p>
           <h1>休暇残数管理</h1>
         </div>
-        <button class="icon-button" id="resetButton" type="button" aria-label="初期化" title="初期化">
-          ↺
-        </button>
+        <div class="top-actions">
+          <button class="icon-button" id="settingsButton" type="button" aria-label="設定" title="設定">
+            ⚙
+          </button>
+          <button class="icon-button" id="resetButton" type="button" aria-label="初期化" title="初期化">
+            ↺
+          </button>
+        </div>
       </header>
 
       <section class="summary" aria-label="残日数">
         <article class="balance-card paid">
           <div class="card-head">
             <span>有給</span>
-            <span class="grant">毎年10/1に+20日</span>
+            <span class="grant" id="paidGrantText">毎年10/1に+20日</span>
           </div>
           <strong id="paidRemaining">12.0</strong>
           <p>残り日数</p>
@@ -39,7 +44,7 @@
         <article class="balance-card refresh">
           <div class="card-head">
             <span>リフレッシュ休暇</span>
-            <span class="grant">毎年4/1に+3日</span>
+            <span class="grant" id="refreshGrantText">毎年4/1に+3日</span>
           </div>
           <strong id="refreshRemaining">3.0</strong>
           <p>残り日数</p>
@@ -97,10 +102,71 @@
     <dialog id="resetDialog">
       <form method="dialog">
         <h2>データを初期化しますか？</h2>
-        <p>履歴を消して、有給12日・リフレッシュ休暇3日に戻します。</p>
+        <p>履歴と設定を消して、もう一度初期設定から始めます。</p>
         <div class="dialog-actions">
           <button value="cancel">キャンセル</button>
           <button id="confirmReset" value="confirm" class="danger-button">初期化</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="settingsDialog" class="wide-dialog">
+      <form id="settingsForm" method="dialog">
+        <div>
+          <p class="eyebrow">Initial setup</p>
+          <h2>休暇の初期設定</h2>
+        </div>
+
+        <div class="settings-grid">
+          <div class="field">
+            <label for="settingsAsOf">基準日</label>
+            <input id="settingsAsOf" type="date" required />
+          </div>
+
+          <div class="field">
+            <label for="settingsPaidBase">有給の現在残数</label>
+            <input id="settingsPaidBase" type="number" min="0" step="0.5" required />
+          </div>
+
+          <div class="field">
+            <label for="settingsPaidGrantMonth">有給の付与月</label>
+            <input id="settingsPaidGrantMonth" type="number" min="1" max="12" required />
+          </div>
+
+          <div class="field">
+            <label for="settingsPaidGrantDay">有給の付与日</label>
+            <input id="settingsPaidGrantDay" type="number" min="1" max="31" required />
+          </div>
+
+          <div class="field">
+            <label for="settingsPaidGrantAmount">有給の付与日数</label>
+            <input id="settingsPaidGrantAmount" type="number" min="0" step="0.5" required />
+          </div>
+
+          <div class="field">
+            <label for="settingsRefreshBase">リフレッシュ休暇の現在残数</label>
+            <input id="settingsRefreshBase" type="number" min="0" step="0.5" required />
+          </div>
+
+          <div class="field">
+            <label for="settingsRefreshGrantMonth">リフレッシュ休暇の付与月</label>
+            <input id="settingsRefreshGrantMonth" type="number" min="1" max="12" required />
+          </div>
+
+          <div class="field">
+            <label for="settingsRefreshGrantDay">リフレッシュ休暇の付与日</label>
+            <input id="settingsRefreshGrantDay" type="number" min="1" max="31" required />
+          </div>
+
+          <div class="field">
+            <label for="settingsRefreshGrantAmount">リフレッシュ休暇の付与日数</label>
+            <input id="settingsRefreshGrantAmount" type="number" min="0" step="0.5" required />
+          </div>
+        </div>
+
+        <div class="dialog-actions">
+          <button id="settingsCancel" value="cancel" type="button">キャンセル</button>
+          <button class="primary-button compact" value="confirm" type="submit">保存</button>
         </div>
       </form>
     </dialog>

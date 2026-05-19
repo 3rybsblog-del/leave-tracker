@@ -1,10 +1,26 @@
 const STORAGE_KEY = "leave-tracker-v1";
-const INITIAL_STATE = {
+const DEFAULT_SETTINGS = {
   asOf: "2026-05-19",
   base: {
     paid: 12,
     refresh: 3,
   },
+  grants: {
+    paid: {
+      month: 10,
+      day: 1,
+      amount: 20,
+    },
+    refresh: {
+      month: 4,
+      day: 1,
+      amount: 3,
+    },
+  },
+};
+const INITIAL_STATE = {
+  configured: false,
+  settings: DEFAULT_SETTINGS,
   usages: [],
 };
 let fallbackStateJson = "";
@@ -27,6 +43,8 @@ const leaveConfig = {
 const els = {
   paidRemaining: document.querySelector("#paidRemaining"),
   refreshRemaining: document.querySelector("#refreshRemaining"),
+  paidGrantText: document.querySelector("#paidGrantText"),
+  refreshGrantText: document.querySelector("#refreshGrantText"),
   todayText: document.querySelector("#todayText"),
   nextGrantText: document.querySelector("#nextGrantText"),
   form: document.querySelector("#usageForm"),
@@ -34,9 +52,22 @@ const els = {
   usageDate: document.querySelector("#usageDate"),
   amount: document.querySelector("#amount"),
   historyList: document.querySelector("#historyList"),
+  settingsButton: document.querySelector("#settingsButton"),
   resetButton: document.querySelector("#resetButton"),
   resetDialog: document.querySelector("#resetDialog"),
   confirmReset: document.querySelector("#confirmReset"),
+  settingsDialog: document.querySelector("#settingsDialog"),
+  settingsForm: document.querySelector("#settingsForm"),
+  settingsCancel: document.querySelector("#settingsCancel"),
+  settingsAsOf: document.querySelector("#settingsAsOf"),
+  settingsPaidBase: document.querySelector("#settingsPaidBase"),
+  settingsPaidGrantMonth: document.querySelector("#settingsPaidGrantMonth"),
+  settingsPaidGrantDay: document.querySelector("#settingsPaidGrantDay"),
+  settingsPaidGrantAmount: document.querySelector("#settingsPaidGrantAmount"),
+  settingsRefreshBase: document.querySelector("#settingsRefreshBase"),
+  settingsRefreshGrantMonth: document.querySelector("#settingsRefreshGrantMonth"),
+  settingsRefreshGrantDay: document.querySelector("#settingsRefreshGrantDay"),
+  settingsRefreshGrantAmount: document.querySelector("#settingsRefreshGrantAmount"),
 };
 
 const today = new Date();
@@ -76,6 +107,10 @@ els.historyList.addEventListener("click", (event) => {
   render();
 });
 
+els.settingsButton.addEventListener("click", () => {
+  openSettingsDialog(false);
+});
+
 els.resetButton.addEventListener("click", () => {
   els.resetDialog.showModal();
 });
@@ -83,16 +118,34 @@ els.resetButton.addEventListener("click", () => {
 els.confirmReset.addEventListener("click", () => {
   state = cloneInitialState();
   saveState();
+  openSettingsDialog(true);
   render();
 });
 
+els.settingsCancel.addEventListener("click", () => {
+  if (state.configured) els.settingsDialog.close();
+});
+
+els.settingsDialog.addEventListener("cancel", (event) => {
+  if (!state.configured) event.preventDefault();
+});
+
+els.settingsForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  saveSettingsFromForm();
+  els.settingsDialog.close();
+});
+
 render();
+if (!state.configured) openSettingsDialog(true);
 registerServiceWorker();
 
 function render() {
   const balances = calculateBalances();
   els.paidRemaining.textContent = formatAmount(balances.paid);
   els.refreshRemaining.textContent = formatAmount(balances.refresh);
+  els.paidGrantText.textContent = grantText("paid");
+  els.refreshGrantText.textContent = grantText("refresh");
   els.nextGrantText.textContent = nextGrantLabel();
   renderHistory();
 }
@@ -149,7 +202,7 @@ function addUsage(type, amount, date) {
 }
 
 function calculateBalances(targetDate = today) {
-  const balances = { ...state.base };
+  const balances = { ...state.settings.base };
 
   Object.entries(leaveConfig).forEach(([type, config]) => {
     balances[type] = grantAdjustedBalance(type, config, targetDate);
@@ -163,14 +216,16 @@ function calculateBalances(targetDate = today) {
 }
 
 function grantAdjustedBalance(type, config, targetDate) {
-  let balance = state.base[type];
-  let year = new Date(`${state.asOf}T00:00:00`).getFullYear();
+  const settings = state.settings;
+  const grant = settings.grants[type];
+  let balance = settings.base[type];
+  let year = new Date(`${settings.asOf}T00:00:00`).getFullYear();
   const endYear = targetDate.getFullYear();
 
   while (year <= endYear) {
-    const grantDate = new Date(year, config.grantMonth - 1, config.grantDay);
-    if (grantDate > new Date(`${state.asOf}T00:00:00`) && grantDate <= endOfDay(targetDate)) {
-      balance += config.grantAmount;
+    const grantDate = new Date(year, grant.month - 1, grant.day);
+    if (grantDate > new Date(`${settings.asOf}T00:00:00`) && grantDate <= endOfDay(targetDate)) {
+      balance += grant.amount;
     }
     year += 1;
   }
@@ -179,11 +234,12 @@ function grantAdjustedBalance(type, config, targetDate) {
 }
 
 function nextGrantLabel() {
-  const nextDates = Object.values(leaveConfig)
-    .map((config) => {
-      let date = new Date(today.getFullYear(), config.grantMonth - 1, config.grantDay);
+  const nextDates = Object.entries(leaveConfig)
+    .map(([type, config]) => {
+      const grant = state.settings.grants[type];
+      let date = new Date(today.getFullYear(), grant.month - 1, grant.day);
       if (date < startOfDay(today)) {
-        date = new Date(today.getFullYear() + 1, config.grantMonth - 1, config.grantDay);
+        date = new Date(today.getFullYear() + 1, grant.month - 1, grant.day);
       }
       return `${config.label}: ${formatDate(toIsoDate(date))}`;
     })
@@ -198,10 +254,12 @@ function loadState() {
 
   try {
     const parsed = JSON.parse(raw);
+    const settings = normalizeSettings(parsed.settings || parsed);
     return {
       ...cloneInitialState(),
       ...parsed,
-      base: { ...INITIAL_STATE.base, ...parsed.base },
+      configured: parsed.configured ?? Boolean(raw),
+      settings,
       usages: Array.isArray(parsed.usages) ? parsed.usages : [],
     };
   } catch {
@@ -256,6 +314,81 @@ function restoreUsageFromUrl() {
 
 function cloneInitialState() {
   return JSON.parse(JSON.stringify(INITIAL_STATE));
+}
+
+function normalizeSettings(settings) {
+  return {
+    asOf: settings.asOf || DEFAULT_SETTINGS.asOf,
+    base: {
+      paid: Number(settings.base?.paid ?? DEFAULT_SETTINGS.base.paid),
+      refresh: Number(settings.base?.refresh ?? DEFAULT_SETTINGS.base.refresh),
+    },
+    grants: {
+      paid: {
+        month: Number(settings.grants?.paid?.month ?? settings.paidGrantMonth ?? DEFAULT_SETTINGS.grants.paid.month),
+        day: Number(settings.grants?.paid?.day ?? settings.paidGrantDay ?? DEFAULT_SETTINGS.grants.paid.day),
+        amount: Number(settings.grants?.paid?.amount ?? settings.paidGrantAmount ?? DEFAULT_SETTINGS.grants.paid.amount),
+      },
+      refresh: {
+        month: Number(
+          settings.grants?.refresh?.month ?? settings.refreshGrantMonth ?? DEFAULT_SETTINGS.grants.refresh.month
+        ),
+        day: Number(settings.grants?.refresh?.day ?? settings.refreshGrantDay ?? DEFAULT_SETTINGS.grants.refresh.day),
+        amount: Number(
+          settings.grants?.refresh?.amount ?? settings.refreshGrantAmount ?? DEFAULT_SETTINGS.grants.refresh.amount
+        ),
+      },
+    },
+  };
+}
+
+function openSettingsDialog(isRequired) {
+  fillSettingsForm();
+  els.settingsCancel.disabled = isRequired;
+  els.settingsDialog.showModal();
+}
+
+function fillSettingsForm() {
+  const settings = state.settings;
+  els.settingsAsOf.value = settings.asOf;
+  els.settingsPaidBase.value = settings.base.paid;
+  els.settingsPaidGrantMonth.value = settings.grants.paid.month;
+  els.settingsPaidGrantDay.value = settings.grants.paid.day;
+  els.settingsPaidGrantAmount.value = settings.grants.paid.amount;
+  els.settingsRefreshBase.value = settings.base.refresh;
+  els.settingsRefreshGrantMonth.value = settings.grants.refresh.month;
+  els.settingsRefreshGrantDay.value = settings.grants.refresh.day;
+  els.settingsRefreshGrantAmount.value = settings.grants.refresh.amount;
+}
+
+function saveSettingsFromForm() {
+  state.settings = normalizeSettings({
+    asOf: els.settingsAsOf.value,
+    base: {
+      paid: els.settingsPaidBase.value,
+      refresh: els.settingsRefreshBase.value,
+    },
+    grants: {
+      paid: {
+        month: els.settingsPaidGrantMonth.value,
+        day: els.settingsPaidGrantDay.value,
+        amount: els.settingsPaidGrantAmount.value,
+      },
+      refresh: {
+        month: els.settingsRefreshGrantMonth.value,
+        day: els.settingsRefreshGrantDay.value,
+        amount: els.settingsRefreshGrantAmount.value,
+      },
+    },
+  });
+  state.configured = true;
+  saveState();
+  render();
+}
+
+function grantText(type) {
+  const grant = state.settings.grants[type];
+  return `毎年${grant.month}/${grant.day}に+${formatAmount(grant.amount)}日`;
 }
 
 function createId() {
