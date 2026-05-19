@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0f766e" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="休暇管理" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="description" content="有給とリフレッシュ休暇の残日数を管理するアプリ" />
+    <title>休暇残数管理</title>
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="./icon-180.png" />
+    <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Leave tracker</p>
+          <h1>休暇残数管理</h1>
+        </div>
+        <button class="icon-button" id="resetButton" type="button" aria-label="初期化" title="初期化">
+          ↺
+        </button>
+      </header>
+
+      <section class="summary" aria-label="残日数">
+        <article class="balance-card paid">
+          <div class="card-head">
+            <span>有給</span>
+            <span class="grant">毎年10/1に+20日</span>
+          </div>
+          <strong id="paidRemaining">12.0</strong>
+          <p>残り日数</p>
+        </article>
+
+        <article class="balance-card refresh">
+          <div class="card-head">
+            <span>リフレッシュ休暇</span>
+            <span class="grant">毎年4/1に+3日</span>
+          </div>
+          <strong id="refreshRemaining">3.0</strong>
+          <p>残り日数</p>
+        </article>
+      </section>
+
+      <section class="entry-panel" aria-label="休暇利用入力">
+        <div class="section-title">
+          <h2>使った休暇を入力</h2>
+          <p id="todayText"></p>
+        </div>
+
+        <form id="usageForm" class="usage-form" action="javascript:void(0)">
+          <div class="field">
+            <label for="leaveType">種類</label>
+            <select id="leaveType" name="leaveType">
+              <option value="paid">有給</option>
+              <option value="refresh">リフレッシュ休暇</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="usageDate">日付</label>
+            <input id="usageDate" name="usageDate" type="date" required />
+          </div>
+
+          <div class="field">
+            <label for="amount">日数</label>
+            <div class="stepper">
+              <button type="button" data-step="-0.5" aria-label="0.5日減らす">−</button>
+              <input id="amount" name="amount" type="number" min="0.5" step="0.5" value="1" required />
+              <button type="button" data-step="0.5" aria-label="0.5日増やす">＋</button>
+            </div>
+          </div>
+
+          <div class="quick-row" aria-label="よく使う日数">
+            <button type="button" data-amount="0.5">半日</button>
+            <button type="button" data-amount="1">1日</button>
+            <button type="button" data-amount="2">2日</button>
+          </div>
+
+          <button class="primary-button" type="submit">入力する</button>
+        </form>
+      </section>
+
+      <section class="timeline-panel" aria-label="利用履歴">
+        <div class="section-title">
+          <h2>履歴</h2>
+          <p id="nextGrantText"></p>
+        </div>
+        <ol id="historyList" class="history-list"></ol>
+      </section>
+    </main>
+
+    <dialog id="resetDialog">
+      <form method="dialog">
+        <h2>データを初期化しますか？</h2>
+        <p>履歴を消して、有給12日・リフレッシュ休暇3日に戻します。</p>
+        <div class="dialog-actions">
+          <button value="cancel">キャンセル</button>
+          <button id="confirmReset" value="confirm" class="danger-button">初期化</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
